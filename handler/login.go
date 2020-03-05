@@ -23,8 +23,9 @@ func CreateLoginHandler(bot *tb.Bot, trakt *traktapi.Client) func(m *tb.Message)
 		)
 
 		times := code.ExpiresIn / code.Interval
+		interval := time.Duration(code.Interval) * time.Second
 		for ; times >= 0; times-- {
-			<-time.After(time.Duration(code.Interval))
+			<-time.After(interval)
 			token, err := trakt.GetDeviceToken(code.DeviceCode)
 			if err != nil {
 				log.Println(err)
