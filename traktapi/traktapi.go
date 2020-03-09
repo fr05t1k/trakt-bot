@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
-const TraktApi = "https://api.trakt.tv/"
+const ApiVersion = "2"
+const ApiBaseUrl = "https://api.trakt.tv/"
 const ApiOAuthDeviceCode = "oauth/device/code"
 const ApiOauthDeviceToken = "oauth/device/token"
+const ApiCalendarsAllDvd = "/calendars/all/dvd/%s/%s"
 const ContentTypeJson = "application/json"
 
 type DeviceCodeResponse struct {
@@ -44,6 +47,25 @@ type DeviceTokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type Release struct {
+	Released string `json:"released"`
+	Movie    Movie
+}
+
+type Movie struct {
+	Title   string `json:"title"`
+	Year    int    `json:"year"`
+	Trailer string `json:"trailer"`
+	Ids     Ids    `json:"ids"`
+}
+
+type Ids struct {
+	Trakt int    `json:"trakt"`
+	Slug  string `json:"slug"`
+	Imdb  string `json:"imdb"`
+	Tmdb  int    `json:"tmdb"`
+}
+
 func (c *Client) SetAccessToken(accessToken string) {
 	c.accessToken = accessToken
 }
@@ -54,7 +76,7 @@ func (c *Client) DeviceCode() (deviceCode DeviceCodeResponse, err error) {
 		return
 	}
 
-	response, err := c.httpClient.Post(TraktApi+ApiOAuthDeviceCode, ContentTypeJson, bytes.NewReader(body))
+	response, err := c.httpClient.Post(ApiBaseUrl+ApiOAuthDeviceCode, ContentTypeJson, bytes.NewReader(body))
 	if err != nil {
 		return
 	}
@@ -78,7 +100,7 @@ func (c *Client) GetDeviceToken(code string) (tokenResponse DeviceTokenResponse,
 		return
 	}
 
-	response, err := c.httpClient.Post(TraktApi+ApiOauthDeviceToken, ContentTypeJson, bytes.NewReader(requestBody))
+	response, err := c.httpClient.Post(ApiBaseUrl+ApiOauthDeviceToken, ContentTypeJson, bytes.NewReader(requestBody))
 	if err != nil {
 		return
 	}
@@ -88,6 +110,25 @@ func (c *Client) GetDeviceToken(code string) (tokenResponse DeviceTokenResponse,
 	}
 
 	err = json.NewDecoder(response.Body).Decode(&tokenResponse)
+	return
+}
+
+func (c *Client) GetDvdReleases() (releases []Release, err error) {
+	request, err := c.makeRequestWithAccessToken(
+		http.MethodGet,
+		ApiBaseUrl+fmt.Sprintf(ApiCalendarsAllDvd, time.Now().AddDate(0, 0, 0).Format("2006-01-02"), "30"),
+		nil,
+	)
+	if err != nil {
+		return
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&releases)
 	return
 }
 
@@ -101,6 +142,9 @@ func (c *Client) makeRequestWithAccessToken(method, url string, body io.Reader) 
 	if err != nil {
 		return
 	}
+
+	request.Header.Set("trakt-api-version", ApiVersion)
+	request.Header.Set("trakt-api-key", c.clientId)
 
 	return request, err
 }

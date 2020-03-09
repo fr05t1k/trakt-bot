@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/cyruzin/golang-tmdb"
 	"github.com/fr05t1k/traktbot/handler"
 	"github.com/fr05t1k/traktbot/traktapi"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -16,14 +17,19 @@ func main() {
 	})
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 	trakt := traktapi.NewClient(
 		os.Getenv("TRAKT_CLIENT_ID"),
 		os.Getenv("TRAKT_CLIENT_SECRET"),
 	)
 
+	tmdbClient, err := tmdb.Init(os.Getenv("TRAKT_TMDB_API_KEY"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	b.Handle("/login", handler.CreateLoginHandler(b, trakt))
+	b.Handle("/dvd-releases", handler.CreateDvdReleasesHandler(b, trakt, tmdbClient))
 
 	b.Start()
 }
